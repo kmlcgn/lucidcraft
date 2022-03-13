@@ -1,1 +1,1 @@
-# lucidcraft-contracts
+# lucidcraft
