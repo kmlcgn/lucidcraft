@@ -17,18 +17,18 @@ Since **Cryptopunks** are created prior to ERC721 standards, there is no  ```own
 ```python3 manage.py runserver```
 
 ## Oracle
-```deploy Operator.sol [`smartcontractkit`](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.7/Operator.sol))```
+```deploy Operator.sol``` [`smartcontractkit`](https://github.com/smartcontractkit/chainlink/blob/develop/contracts/src/v0.7/Operator.sol)
 
 ## External Adapter
 ```run chainlink node```
 
-```set bridge name, url = http://host.docker.internal:8080/```
+```set bridge``` url = http://host.docker.internal:8080/
 
-```create job [`Job Definition`](https://github.com/thelucidcraft/lucidcraft/blob/main/cl-ea/index.js))```
+```create job``` [`Job Definition`](https://github.com/thelucidcraft/lucidcraft/blob/main/cl-ea/index.js)
 
 ## Contracts
 
-```deploy [`LucidCraft.sol`](https://github.com/thelucidcraft/lucidcraft/blob/main/contracts/LucidCraft.sol)```
+```deploy contract``` [`LucidCraft.sol`](https://github.com/thelucidcraft/lucidcraft/blob/main/contracts/LucidCraft.sol)
 
 ```send test LINK```
 
