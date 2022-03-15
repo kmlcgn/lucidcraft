@@ -23,8 +23,10 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     // map each request to the corresponding t-shirt
     mapping(bytes32 => uint256) public reqTotshirtId;    
-    // map each request to the request sender.
-    mapping(bytes32 => address ) public reqToAddress;
+    // map each request to the request sender
+    mapping(bytes32 => address) public reqToAddress;
+    // map each request to the NFTData hash
+    mapping(bytes32 => NFTData) public reqToNFTData;
 
     // Contract address and token id of the NFT which will be printed to the t-shirt
     struct NFTData { 
@@ -119,17 +121,19 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
         reqTotshirtId[requestId] = tshirtId;
         // Map the request ID to the message sender
         reqToAddress[requestId] = msg.sender;
+        // Map the request ID to the nftData
+        reqToNFTData[requestId] = nftData;
     }
 
     // Fulfill the Chainlink request by returning the new URI
-    function fulfill(bytes32 _requestId, string memory newURI )
+    function fulfill(bytes32 _requestId, string memory newURI)
     public recordChainlinkFulfillment(_requestId)
     {
         //these requires are for preventing double calling
         require(hasChanged[reqTotshirtId[_requestId]] == false, "Tshirt is already used");
 
         address ownerOfNft = ownerOf(reqTotshirtId[_requestId]);
-        NFTData memory nftData = addressToNFTData[ownerOfNft];
+        NFTData memory nftData = reqToNFTData[_requestId];
         require(isNftUsed[keccak256(abi.encode(nftData))] == false, "NFT is already used");
 
         // request sender is equal to Owner of NFT
