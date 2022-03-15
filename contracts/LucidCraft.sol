@@ -170,8 +170,17 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     }
 
     // getTheAddressOwner_CryptoPunk
+    function _getTheAddressOwner_Cryptopunk(address nftContractAddress, uint256 nftId) 
+        internal 
+        returns(address) 
+    {
+        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one");
+        return Cryptopunk(nftContractAddress).punkIndexToAddress(nftId);
+    }
 
     function _getTheAddressOwner(address nftContractAddress, uint256 nftId) internal returns(address) {
+        if(nftContractAddress == cryptopunkAddress)
+            return _getTheAddressOwner_Cryptopunk(nftContractAddress, nftId);
         (bool success, bytes memory data) =  nftContractAddress.call(abi.encodeWithSignature("ownerOf(uint256)", nftId));
         require(success, "External function call failed."); // cannot check
         return abi.decode(data, (address));
@@ -181,10 +190,8 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
         internal 
         returns(bool) 
     {
-        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one");
-        
+        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one"); 
         return Cryptopunk(nftContractAddress).punkIndexToAddress(nftId) == msg.sender;
-
     }
 
     function _isNftAlreadyUsed(address nftContractAddress, uint256 nftId)
