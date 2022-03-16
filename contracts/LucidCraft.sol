@@ -13,14 +13,11 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    bytes public temp;
-
     uint256 internal ORACLE_PAYMENT = 0.1 * 10**18; // 0.1 LINK  
 
     // below strings are harcoded for testing purposes only. 
     string internal tshirt_uri = "https://ipfs.io/ipfs/QmZFzA1767ZWSRRrW8ny2j6MiBb5J1SvyBc4NZa2x4cLoe/2740";
     string internal other_nft_uri = "https://ipfs.io/ipfs/QmZFzA1767ZWSRRrW8ny2j6MiBb5J1SvyBc4NZa2x4cLoe/2740"; 
-
 
     // Contract address and token id of the NFT which will be printed to the t-shirt
     struct NFTData { 
@@ -59,7 +56,7 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     }
 
     // mint the tshirt
-    function safeMint(address to, string memory uri) public {
+    function safeMint(address to, string memory uri) external {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
@@ -69,16 +66,16 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     //helper function
     function toAsciiString(address x) internal pure returns (string memory) {
-    bytes memory s = new bytes(40);
-    for (uint i = 0; i < 20; i++) {
-        bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
-        bytes1 hi = bytes1(uint8(b) / 16);
-        bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
-        s[2*i] = char(hi);
-        s[2*i+1] = char(lo);            
+        bytes memory s = new bytes(40);
+        for (uint i = 0; i < 20; i++) {
+            bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
+            bytes1 hi = bytes1(uint8(b) / 16);
+            bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
+            s[2*i] = char(hi);
+            s[2*i+1] = char(lo);            
+        }
+        return string(s);
     }
-    return string(s);
-}
     //helper function
     function char(bytes1 b) internal pure returns (bytes1 c) {
         if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
@@ -87,19 +84,19 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     //helper function
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
-    bytes memory tempEmptyStringTest = bytes(source);
-    if (tempEmptyStringTest.length == 0) {
-      return 0x0;
-    }
+        bytes memory tempEmptyStringTest = bytes(source);
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
 
-    assembly { // solhint-disable-line no-inline-assembly
-      result := mload(add(source, 32))
+        assembly { // solhint-disable-line no-inline-assembly
+            result := mload(add(source, 32))
+        }
     }
-}
 
     // merge button: print the nft to the tshirt
     function mergeButton(string memory _jobId, uint256 tshirtId, address nftContractAddress, uint256 nftId)
-    external
+        external
     {
         require(ownerOf(tshirtId) == msg.sender, "You do not own the frame");
         require(_isTheAddressOwner(nftContractAddress, nftId), "You do not own the NFT!");
@@ -126,7 +123,8 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     // Fulfill the Chainlink request by returning the new URI
     function fulfill(bytes32 _requestId, string memory newURI)
-    public recordChainlinkFulfillment(_requestId)
+        external 
+        recordChainlinkFulfillment(_requestId)
     {
         RequestData memory requestData = reqToRequestData[_requestId];
         NFTData memory nftData = requestData.nftData;
