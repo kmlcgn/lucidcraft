@@ -127,21 +127,24 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
         recordChainlinkFulfillment(_requestId)
     {
         RequestData memory requestData = reqToRequestData[_requestId];
+        delete reqToRequestData[_requestId];
+
         NFTData memory nftData = requestData.nftData;
+        bytes32 hashOfNftData = keccak256(abi.encode(nftData));
 
         //these requires are for preventing double calling
         require(hasChanged[requestData.tshirtId] == false, "Tshirt is already used");
 
-        require(isNftUsed[keccak256(abi.encode(nftData))] == false, "NFT is already used");
+        require(isNftUsed[hashOfNftData] == false, "NFT is already used");
 
-        // request sender is equal to Owner of NFT
-        require(requestData.requester == ownerOf(requestData.tshirtId), "You are not the request sender"); 
+        // Check if request sender is equal to the owner of tshirt
+        require(requestData.requester == ownerOf(requestData.tshirtId), "Request sender is different from owner of the Tshirt"); 
 
-        // Check owner of tshirt is the same user to the real owner of tshirt
-        require(_getTheAddressOwner(nftData.contractAddress, nftData.tokenId) == ownerOf(requestData.tshirtId), "Tshirt owner is not equal to NFT owner");
+        // Check if request sender is equal to the owner of NFT
+        require(requestData.requester == _getTheAddressOwner(nftData.contractAddress, nftData.tokenId), "Request sender is different from owner of the NFT");
 
         hasChanged[requestData.tshirtId] = true;
-        isNftUsed[keccak256(abi.encode(nftData))] = true;
+        isNftUsed[hashOfNftData] = true;
 
         newURIs[requestData.tshirtId] = newURI;    
 
