@@ -13,23 +13,23 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     using Counters for Counters.Counter;
     Counters.Counter private _tokenIdCounter;
 
-    bytes public temp;
-
     uint256 internal ORACLE_PAYMENT = 0.1 * 10**18; // 0.1 LINK  
 
     // below strings are harcoded for testing purposes only. 
     string internal tshirt_uri = "https://ipfs.io/ipfs/QmZFzA1767ZWSRRrW8ny2j6MiBb5J1SvyBc4NZa2x4cLoe/2740";
     string internal other_nft_uri = "https://ipfs.io/ipfs/QmZFzA1767ZWSRRrW8ny2j6MiBb5J1SvyBc4NZa2x4cLoe/2740"; 
 
-    // map each request to the corresponding t-shirt
-    mapping(bytes32 => uint256) public reqTotshirtId;    
-    // map each request to the request sender.
-    mapping(bytes32 => address ) public reqToAddress;
-
     // Contract address and token id of the NFT which will be printed to the t-shirt
     struct NFTData { 
       address contractAddress;
       uint256 tokenId;
+    }
+
+    // Attributes of the request which we will use
+    struct RequestData {  // Not "Request", could be confused with Chainlink.Request
+        address requester;
+        uint256 tshirtId;
+        NFTData nftData;
     }
 
     // owner of the NFT
@@ -43,6 +43,9 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     // each nft can be printed only once.
     mapping(bytes32 => bool) public isNftUsed;
 
+    // map each request to its attributes to be used later
+    mapping(bytes32 => RequestData) reqToRequestData;
+
     // _link = the LINK token address on this networkh
     
     constructor() ERC721("LucidCraft", "LUCID") 
@@ -53,7 +56,7 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     }
 
     // mint the tshirt
-    function safeMint(address to, string memory uri) public {
+    function safeMint(address to, string memory uri) external {
         uint256 tokenId = _tokenIdCounter.current();
         _tokenIdCounter.increment();
         _safeMint(to, tokenId);
@@ -63,16 +66,16 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     //helper function
     function toAsciiString(address x) internal pure returns (string memory) {
-    bytes memory s = new bytes(40);
-    for (uint i = 0; i < 20; i++) {
-        bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
-        bytes1 hi = bytes1(uint8(b) / 16);
-        bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
-        s[2*i] = char(hi);
-        s[2*i+1] = char(lo);            
+        bytes memory s = new bytes(40);
+        for (uint i = 0; i < 20; i++) {
+            bytes1 b = bytes1(uint8(uint(uint160(x)) / (2**(8*(19 - i)))));
+            bytes1 hi = bytes1(uint8(b) / 16);
+            bytes1 lo = bytes1(uint8(b) - 16 * uint8(hi));
+            s[2*i] = char(hi);
+            s[2*i+1] = char(lo);            
+        }
+        return string(s);
     }
-    return string(s);
-}
     //helper function
     function char(bytes1 b) internal pure returns (bytes1 c) {
         if (uint8(b) < 10) return bytes1(uint8(b) + 0x30);
@@ -81,19 +84,19 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
 
     //helper function
     function stringToBytes32(string memory source) private pure returns (bytes32 result) {
-    bytes memory tempEmptyStringTest = bytes(source);
-    if (tempEmptyStringTest.length == 0) {
-      return 0x0;
-    }
+        bytes memory tempEmptyStringTest = bytes(source);
+        if (tempEmptyStringTest.length == 0) {
+            return 0x0;
+        }
 
-    assembly { // solhint-disable-line no-inline-assembly
-      result := mload(add(source, 32))
+        assembly { // solhint-disable-line no-inline-assembly
+            result := mload(add(source, 32))
+        }
     }
-}
 
     // merge button: print the nft to the tshirt
     function mergeButton(string memory _jobId, uint256 tshirtId, address nftContractAddress, uint256 nftId)
-    external
+        external
     {
         require(ownerOf(tshirtId) == msg.sender, "You do not own the frame");
         require(_isTheAddressOwner(nftContractAddress, nftId), "You do not own the NFT!");
@@ -115,33 +118,35 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
         // Send request to the oracle
         bytes32 requestId = sendOperatorRequest(req, ORACLE_PAYMENT);
 
-        // Map the request ID to the tshirt in the callback
-        reqTotshirtId[requestId] = tshirtId;
-        // Map the request ID to the message sender
-        reqToAddress[requestId] = msg.sender;
+        reqToRequestData[requestId] = RequestData(msg.sender, tshirtId, nftData);
     }
 
     // Fulfill the Chainlink request by returning the new URI
-    function fulfill(bytes32 _requestId, string memory newURI )
-    public recordChainlinkFulfillment(_requestId)
+    function fulfill(bytes32 _requestId, string memory newURI)
+        external 
+        recordChainlinkFulfillment(_requestId)
     {
+        RequestData memory requestData = reqToRequestData[_requestId];
+        delete reqToRequestData[_requestId];
+
+        NFTData memory nftData = requestData.nftData;
+        bytes32 hashOfNftData = keccak256(abi.encode(nftData));
+
         //these requires are for preventing double calling
-        require(hasChanged[reqTotshirtId[_requestId]] == false, "Tshirt is already used");
+        require(hasChanged[requestData.tshirtId] == false, "Tshirt is already used");
 
-        address ownerOfNft = ownerOf(reqTotshirtId[_requestId]);
-        NFTData memory nftData = addressToNFTData[ownerOfNft];
-        require(isNftUsed[keccak256(abi.encode(nftData))] == false, "NFT is already used");
+        require(isNftUsed[hashOfNftData] == false, "NFT is already used");
 
-        // request sender is equal to Owner of NFT
-        require (reqToAddress[_requestId] == ownerOfNft, "You are not the request sender"); 
+        // Check if request sender is equal to the owner of tshirt
+        require(requestData.requester == ownerOf(requestData.tshirtId), "Request sender is different from owner of the Tshirt"); 
 
-        // Check owner of tshirt is the same user to the real owner of tshirt
-        require(_getTheAddressOwner(nftData.contractAddress, nftData.tokenId) == ownerOf(reqTotshirtId[_requestId]), "Tshirt owner is not equal to NFT owner");
+        // Check if request sender is equal to the owner of NFT
+        require(requestData.requester == _getTheAddressOwner(nftData.contractAddress, nftData.tokenId), "Request sender is different from owner of the NFT");
 
-        hasChanged[reqTotshirtId[_requestId]] = true;
-        isNftUsed[keccak256(abi.encode(nftData))] = true;
+        hasChanged[requestData.tshirtId] = true;
+        isNftUsed[hashOfNftData] = true;
 
-        newURIs[reqTotshirtId[_requestId]] = newURI;    
+        newURIs[requestData.tshirtId] = newURI;    
 
     }
     //helper function
@@ -170,8 +175,17 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     }
 
     // getTheAddressOwner_CryptoPunk
+    function _getTheAddressOwner_Cryptopunk(address nftContractAddress, uint256 nftId) 
+        internal 
+        returns(address) 
+    {
+        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one");
+        return Cryptopunk(nftContractAddress).punkIndexToAddress(nftId);
+    }
 
     function _getTheAddressOwner(address nftContractAddress, uint256 nftId) internal returns(address) {
+        if(nftContractAddress == cryptopunkAddress)
+            return _getTheAddressOwner_Cryptopunk(nftContractAddress, nftId);
         (bool success, bytes memory data) =  nftContractAddress.call(abi.encodeWithSignature("ownerOf(uint256)", nftId));
         require(success, "External function call failed."); // cannot check
         return abi.decode(data, (address));
@@ -181,10 +195,8 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
         internal 
         returns(bool) 
     {
-        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one");
-        
+        require(nftContractAddress == cryptopunkAddress, "Address is not Cryptopunk but judged as one"); 
         return Cryptopunk(nftContractAddress).punkIndexToAddress(nftId) == msg.sender;
-
     }
 
     function _isNftAlreadyUsed(address nftContractAddress, uint256 nftId)
