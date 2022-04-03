@@ -98,7 +98,7 @@ contract InitialToken is ChainlinkClient, ERC721, ERC721URIStorage, Ownable {
     function mergeButton(string memory _jobId, uint256 tshirtId, address nftContractAddress, uint256 nftId)
         external
     {
-        require(ownerOf(tshirtId) == msg.sender, "You do not own the frame");
+        require(ownerOf(tshirtId) == msg.sender, "You do not own the tshirt");
         require(_isTheAddressOwner(nftContractAddress, nftId), "You do not own the NFT!");
         require(!_isNftAlreadyUsed(nftContractAddress,nftId), "NFT is already used");
 
