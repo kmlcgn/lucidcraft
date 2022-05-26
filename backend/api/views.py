@@ -1,9 +1,10 @@
+import environ
 from django.shortcuts import render
 from rest_framework.renderers import JSONRenderer
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from api.renderers import JPEGRenderer, PNGRenderer
-from django.http import FileResponse, HttpResponse
+from django.http import FileResponse, HttpResponse, JsonResponse
 
 from PIL import Image
 from io import BytesIO
@@ -118,3 +119,49 @@ class MergeUploadNFTsView(APIView):
 
         #return Response(FileWrapper(other_nft_img))
         return Response({"uri": "https://ipfs.io/ipfs/QmZFzA1767ZWSRRrW8ny2j6MiBb5J1SvyBc4NZa2x4cLoe/2740"})
+
+
+class GetUserNfts(APIView):
+
+    base_url = "https://deep-index.moralis.io/api/v2/"
+    url_ending = "/nft"
+
+    env = environ.Env()
+    api_key = env("MORALIS_KEY")
+
+    def get(self, request, **kwargs):
+
+        body = request.data
+        all_results = []
+        address = ""
+
+        try:
+            address = body['address']
+        except:
+            JsonResponse({"msg": 'Address not provided'}, status=500)
+        try:
+
+            url = self.base_url + address + self.url_ending
+            req = requests.get(url, headers={"X-API-Key": self.api_key })
+            res = req.json()
+
+            total = res['total']
+            cursor = res["cursor"]
+            results = res['result']
+            all_results += results
+
+            while results != []:
+                req = requests.get(url , headers={"X-API-Key": self.api_key }, params={"cursor": cursor})
+                res = req.json()
+
+                cursor = res["cursor"]
+                results = res['result']
+                all_results += results
+
+
+            return JsonResponse({"total": total , "results": all_results}, status=200)
+
+
+        except Exception as e:
+            return JsonResponse({"msg" : str(e)}, status=500)
+
