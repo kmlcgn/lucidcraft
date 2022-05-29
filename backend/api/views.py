@@ -131,12 +131,13 @@ class GetUserNfts(APIView):
 
     def get(self, request, **kwargs):
 
-        body = request.data
         all_results = []
         address = ""
 
         try:
-            address = body['address']
+            address = request.GET.get('address', '')
+
+
         except:
             JsonResponse({"msg": 'Address not provided'}, status=500)
         try:
